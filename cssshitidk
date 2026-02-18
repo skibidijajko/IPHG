@@ -1,0 +1,200 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Imageboard</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header>
+<h1>/imgboard/</h1>
+<p class="subtitle">simple anonymous imageboard</p>
+</header>
+
+<div id="groups" class="boards">
+<button onclick="setGroup('general')" id="g-general">/general/ 🙂</button>
+<button onclick="setGroup('hunts')" id="g-hunts">/hunts/ 🔎</button>
+<button onclick="setGroup('dox')" id="g-dox">/dox/ 📂</button>
+</div>
+
+<section class="post-form">
+<h3>New post</h3>
+<textarea id="text" placeholder="text..."></textarea>
+<input type="file" id="img" accept="image/*" />
+<button onclick="addPost()">Post</button>
+</section>
+
+<hr>
+<div id="posts"></div>
+
+<script>
+let group='general';
+const posts=JSON.parse(localStorage.getItem('posts')||'[]');
+
+/* ===== Moderation banned words ===== */
+const bannedWords=[
+ "nigger","faggot","retard","kike","tranny","spic",
+ "hitler","nazi","rape","kill yourself"
+];
+
+function containsBanned(text){
+ if(!text) return false;
+ const t=text.toLowerCase();
+ return bannedWords.some(w=>t.includes(w));
+}
+
+function setGroup(g){
+ group=g;
+ document.querySelectorAll('#groups button').forEach(b=>b.classList.remove('active'));
+ document.getElementById('g-'+g).classList.add('active');
+ render();
+}
+
+function addPost(){
+ const text=document.getElementById('text').value;
+ const file=document.getElementById('img').files[0];
+
+ if(containsBanned(text)){
+  alert('Post blocked — forbidden words detected.');
+  return;
+ }
+
+ if(!text && !file) return;
+
+ if(file){
+  const reader=new FileReader();
+  reader.onload=e=>savePost(text,e.target.result);
+  reader.readAsDataURL(file);
+ }else savePost(text,null);
+}
+
+function savePost(text,img){
+ posts.unshift({
+  group,
+  text,
+  img,
+  date:new Date().toLocaleString(),
+  reactions:{"👍":0,"😂":0,"🔥":0,"❤️":0}
+ });
+ localStorage.setItem('posts',JSON.stringify(posts));
+ document.getElementById('text').value='';
+ document.getElementById('img').value='';
+ render();
+}
+
+function react(index,emoji){
+ posts[index].reactions[emoji]++;
+ localStorage.setItem('posts',JSON.stringify(posts));
+ render();
+}
+
+function render(){
+ const el=document.getElementById('posts');
+ el.innerHTML='';
+
+ posts
+ .map((p,i)=>({p,i}))
+ .filter(obj=>obj.p.group===group)
+ .forEach(({p,i})=>{
+  const d=document.createElement('div');
+  d.className='post';
+
+  d.innerHTML=`<div class="post-head"><span class="anon">Anonymous</span> <span class="date">${p.date}</span></div><p>${p.text||''}</p>`;
+
+  if(p.img){
+   const im=document.createElement('img');
+   im.src=p.img;
+   d.appendChild(im);
+  }
+
+  const reactions=document.createElement('div');
+  reactions.className='reactions';
+
+  Object.keys(p.reactions).forEach(e=>{
+   const b=document.createElement('button');
+   b.className='reaction-btn';
+   b.textContent=`${e} ${p.reactions[e]}`;
+   b.onclick=()=>react(i,e);
+   reactions.appendChild(b);
+  });
+
+  d.appendChild(reactions);
+  el.appendChild(d);
+ });
+}
+
+setGroup('general');
+</script>
+</body>
+</html>
+
+/* ================= style.css ================= */
+body{
+ font-family:Verdana,Arial,sans-serif;
+ background:#eef2ff;
+ color:#000;
+ margin:0;
+ padding:20px;
+}
+
+header{text-align:center;margin-bottom:20px}
+header h1{color:#117743;margin:0}
+.subtitle{font-size:13px;color:#555}
+
+.boards button{
+ background:#d6daf0;
+ border:1px solid #b7c5d9;
+ padding:6px 12px;
+ margin:4px;
+ border-radius:6px;
+}
+
+.boards button.active{background:#98a8c0;color:white}
+
+.post-form{
+ background:#d6daf0;
+ padding:12px;
+ border-radius:8px;
+ margin-bottom:20px;
+}
+
+textarea{
+ width:100%;
+ height:90px;
+ margin-bottom:8px;
+ border:1px solid #aaa;
+ border-radius:6px;
+ padding:6px;
+ font-family:monospace;
+}
+
+.post{
+ background:#f0e0d6;
+ border:1px solid #d9bfb7;
+ padding:10px;
+ margin-bottom:12px;
+ border-radius:6px;
+}
+
+.post-head{font-size:12px;margin-bottom:6px}
+.anon{color:#117743;font-weight:bold}
+.date{color:#555;margin-left:6px}
+
+img{
+ max-width:250px;
+ display:block;
+ margin-top:8px;
+ border-radius:4px;
+}
+
+.reactions{margin-top:8px}
+.reaction-btn{
+ font-size:12px;
+ background:#e6e6e6;
+ border:1px solid #bbb;
+ border-radius:12px;
+ padding:2px 8px;
+ margin-right:4px;
+}
